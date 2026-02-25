@@ -32,6 +32,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	if err = db.Ping(); err != nil {
+		log.Fatal(err)
+	}
+
 	createTable()
 
 	http.HandleFunc("/todos", todosHandler)
@@ -48,8 +52,7 @@ func createTable() {
 		title TEXT NOT NULL,
 		completed BOOLEAN DEFAULT FALSE
 	);`
-	_, err := db.Exec(query)
-	if err != nil {
+	if _, err := db.Exec(query); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -68,7 +71,7 @@ func todosHandler(w http.ResponseWriter, r *http.Request) {
 func getTodos(w http.ResponseWriter) {
 	rows, err := db.Query("SELECT id, title, completed FROM todos")
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -76,17 +79,28 @@ func getTodos(w http.ResponseWriter) {
 	var todos []Todo
 	for rows.Next() {
 		var t Todo
-		rows.Scan(&t.ID, &t.Title, &t.Completed)
+		if err := rows.Scan(&t.ID, &t.Title, &t.Completed); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		todos = append(todos, t)
 	}
 
-	json.NewEncoder(w).Encode(todos)
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(todos); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func createTodo(w http.ResponseWriter, r *http.Request) {
 	title := r.URL.Query().Get("title")
 	if title == "" {
-		http.Error(w, "title required", 400)
+		http.Error(w, "title required", http.StatusBadRequest)
 		return
 	}
 
@@ -97,24 +111,26 @@ func createTodo(w http.ResponseWriter, r *http.Request) {
 	).Scan(&id)
 
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]int{"id": id})
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]int{"id": id}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/todos/")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid id", 400)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
-	_, err = db.Exec("DELETE FROM todos WHERE id=$1", id)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
+	if _, err := db.Exec("DELETE FROM todos WHERE id=$1", id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
