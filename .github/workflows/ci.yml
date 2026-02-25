@@ -35,3 +35,10 @@ jobs:
       - name: Build project
         run: go build ./...
         working-directory: backend
+        
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: todo-app:ci
