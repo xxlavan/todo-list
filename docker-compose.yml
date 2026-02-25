@@ -15,7 +15,7 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/todo
+      DATABASE_URL: postgres://postgres:postgres@db:5432/todo?sslmode=disable
     depends_on:
       - db
     ports:

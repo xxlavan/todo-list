@@ -14,18 +14,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Golang
+        uses: actions/setup-go@v5
         with:
-          python-version: '3.11'
+          go-version-file: backend/go.mod
 
-      - name: Install dependencies
-        run: |
-          cd backend
-          pip install -r requirements.txt
-          pip install pytest
+      - name: Download dependencies
+        run: go mod download
+        working-directory: backend
 
       - name: Run tests
-        run: |
-          cd backend
-          pytest
+        run: go test ./...
+        working-directory: backend
